@@ -2,8 +2,28 @@ console.log('Content script loaded!');
 
 let isTranslating = false;
 let translatedNodes = new Set(); // 이미 번역된 노드들을 추적
+let isTranslationEnabled = false; // 번역 기능 on/off 상태
+
+// 번역 상태 초기화
+function initializeTranslationState() {
+    // eslint-disable-next-line no-undef
+    chrome.storage.local.get(['translation_enabled'], (result) => {
+        isTranslationEnabled = result.translation_enabled || false;
+        console.log('Translation enabled:', isTranslationEnabled);
+        
+        // 번역이 활성화되어 있으면 초기 번역 실행
+        if (isTranslationEnabled) {
+            handleTranslate();
+        }
+    });
+}
 
 const handleTranslate = () => {
+    if (!isTranslationEnabled) {
+        console.log('Translation is disabled.');
+        return;
+    }
+    
     if (isTranslating) {
         console.log('Translation is already in progress.');
         return;
@@ -23,17 +43,18 @@ const handleTranslate = () => {
     const inputJsonArray = JSON.stringify(texts);
   
     if (window.chrome && window.chrome.runtime) {
-        // 저장된 번역 언어 가져오기
+        // 저장된 번역 언어와 모델 가져오기
         // eslint-disable-next-line no-undef
-        chrome.storage.local.get(['target_language'], (result) => {
+        chrome.storage.local.get(['target_language', 'gpt_model'], (result) => {
             const targetLanguage = result.target_language || 'Korean';
-            console.log('targetLanguage:', targetLanguage);
+            const gptModel = result.gpt_model || 'gpt-4.1';
+            console.log('targetLanguage:', targetLanguage, 'gptModel:', gptModel);
             
             isTranslating = true;
             window.chrome.runtime.sendMessage(
                 {
                     type: 'CHATGPT_REQUEST',
-                    model: 'gpt-4.1-nano',
+                    model: gptModel,
                     instructions:
                         `You are a professional translator. Translate each item in the following JSON array into natural ${targetLanguage}. Return the result as a JSON array in the same order. Do not include any explanations or formatting.`,
                     input: inputJsonArray,
@@ -68,9 +89,27 @@ const handleTranslate = () => {
     }
 };
 
+// 메시지 리스너 추가 (팝업에서 번역 토글 시)
+// eslint-disable-next-line no-undef
+chrome.runtime.onMessage.addListener((request) => {
+    if (request.type === 'TRANSLATION_TOGGLED') {
+        isTranslationEnabled = request.enabled;
+        console.log('Translation toggled:', isTranslationEnabled);
+        
+        if (isTranslationEnabled) {
+            // 번역이 활성화되면 즉시 번역 실행
+            setTimeout(() => {
+                handleTranslate();
+            }, 500);
+        }
+    }
+});
+
 // 동적 컨텐츠 감지를 위한 MutationObserver 설정
 function setupDynamicContentObserver() {
     const observer = new MutationObserver((mutations) => {
+        if (!isTranslationEnabled) return; // 번역이 비활성화되어 있으면 무시
+        
         let hasNewContent = false;
         
         mutations.forEach((mutation) => {
@@ -90,7 +129,7 @@ function setupDynamicContentObserver() {
             console.log('New content detected, preparing translation...');
             setTimeout(() => {
                 handleTranslate();
-            }, 1000); // 1초 후 번역 실행 (컨텐츠 로딩 완료 대기) 
+            }, 1000); // 1초 후 번역 실행 (컨텐츠 로딩 완료 대기)
         }
     });
     
@@ -108,6 +147,8 @@ function setupDynamicContentObserver() {
 // 주기적으로 새로운 컨텐츠 확인
 function setupPeriodicCheck() {
     setInterval(() => {
+        if (!isTranslationEnabled) return; // 번역이 비활성화되어 있으면 무시
+        
         if (!isTranslating) {
             const textNodes = getMeaningfulTextNodes();
             const newTextNodes = textNodes.filter(node => !translatedNodes.has(node));
@@ -265,8 +306,8 @@ function getMeaningfulTextNodes() {
     return nodes;
 }
 
-// 초기 실행
-handleTranslate();
+// 초기화
+initializeTranslationState();
 
 // 동적 컨텐츠 감지 설정
 setupDynamicContentObserver();

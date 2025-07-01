@@ -1,22 +1,44 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 
 function App() {
-  const [token, setToken] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [prompt, setPrompt] = useState('')
-  const [response, setResponse] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [token, setToken] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isSavedToken, setIsSavedToken] = useState(false);
+
+  useEffect(() => {
+    if (window.chrome && window.chrome.storage) {
+      window.chrome.storage.local.get(['chatgpt_token'], (result) => {
+        if (result.chatgpt_token) {
+          setToken(result.chatgpt_token);
+          setIsSavedToken(true);
+        }
+      });
+    }
+  }, []);
 
   const handleSave = () => {
     if (window.chrome && window.chrome.storage) {
       window.chrome.storage.local.set({ chatgpt_token: token }, () => {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 1500)
+        setSaved(true);
+        setIsSavedToken(true);
+        setTimeout(() => setSaved(false), 1500);
       })
     } else {
       alert('크롬 확장 환경에서만 동작합니다.')
+    }
+  }
+
+  const handleDeleteToken = () => {
+    if (window.chrome && window.chrome.storage) {
+      window.chrome.storage.local.remove('chatgpt_token', () => {
+        setToken('');
+        setIsSavedToken(false);
+      })
     }
   }
 
@@ -51,19 +73,27 @@ function App() {
   return (
     <div className="app-container">
       <h1 className="label-title">ChatGPT 인증 토큰 입력</h1>
-      <input
+      {!isSavedToken && <input
         type="text"
         className="border p-2 rounded w-full mb-2"
         placeholder="ChatGPT 인증 토큰을 입력하세요"
         value={token}
         onChange={e => setToken(e.target.value)}
-      />
-      <button
+      />}
+      {!isSavedToken && <button
         className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
         onClick={handleSave}
       >
         저장
       </button>
+      }
+      {isSavedToken && <button
+        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+        onClick={handleDeleteToken}
+      >
+        토큰 삭제
+      </button>
+      }
       {saved && <div className="save-success">저장되었습니다!</div>}
 
       <h2 className="label-section">ChatGPT 프롬프트 테스트</h2>

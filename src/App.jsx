@@ -29,7 +29,8 @@ function App() {
       window.chrome.runtime.sendMessage({
         type: 'CHATGPT_REQUEST',
         model: 'gpt-4.1-nano',
-        prompt
+        instructions: 'You are a professional translator. Translate text to natural Korean. Only return the translated text.',
+        input:prompt
       }, (res) => {
         setLoading(false)
         if (res?.error) {
@@ -48,8 +49,8 @@ function App() {
   }
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-2">ChatGPT 인증 토큰 입력</h1>
+    <div className="app-container">
+      <h1 className="label-title">ChatGPT 인증 토큰 입력</h1>
       <input
         type="text"
         className="border p-2 rounded w-full mb-2"
@@ -63,9 +64,9 @@ function App() {
       >
         저장
       </button>
-      {saved && <div className="text-green-600 mt-2">저장되었습니다!</div>}
+      {saved && <div className="save-success">저장되었습니다!</div>}
 
-      <h2 className="text-lg font-bold mt-6 mb-2">ChatGPT 프롬프트 테스트</h2>
+      <h2 className="label-section">ChatGPT 프롬프트 테스트</h2>
       <input
         type="text"
         className="border p-2 rounded w-full mb-2"
@@ -81,12 +82,12 @@ function App() {
         {loading ? '요청 중...' : '확인'}
       </button>
       {response && (
-        <div className="mt-4 p-2 border rounded bg-gray-50 whitespace-pre-wrap text-sm">
+        <div className="response-box">
           {response}
         </div>
       )}
       {!response && (
-        <div className="mt-4 p-2 border rounded bg-gray-50 whitespace-pre-wrap text-sm">
+        <div className="response-box">
           No response
         </div>
       )}

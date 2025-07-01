@@ -12,17 +12,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ error: 'No token found' });
         return;
       }
-      fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ input: request.prompt, model: request.model })
-      })
-        .then(res => res.json())
-        .then(data => sendResponse({ data }))
-        .catch(err => sendResponse({ error: err.message }));
+      const {type, ...rest} = request;
+
+      if (type === 'CHATGPT_REQUEST') {
+        fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ ...rest })
+          })
+            .then(res => res.json())
+            .then(data => sendResponse({ data }))
+            .catch(err => sendResponse({ error: err.message }));
+      }
+
+      
     });
     // 비동기 응답을 위해 true 반환
     return true;

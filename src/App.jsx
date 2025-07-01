@@ -10,6 +10,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isSavedToken, setIsSavedToken] = useState(false);
 
+
+  
+
   useEffect(() => {
     if (window.chrome && window.chrome.storage) {
       window.chrome.storage.local.get(['chatgpt_token'], (result) => {

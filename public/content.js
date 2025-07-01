@@ -5,7 +5,7 @@ let translatedNodes = new Set(); // 이미 번역된 노드들을 추적
 
 const handleTranslate = () => {
     if (isTranslating) {
-        console.log('번역이 이미 진행 중입니다.');
+        console.log('Translation is already in progress.');
         return;
     }
     
@@ -13,51 +13,58 @@ const handleTranslate = () => {
     const newTextNodes = textNodes.filter(node => !translatedNodes.has(node));
     
     if (newTextNodes.length === 0) {
-        console.log('새로운 번역할 텍스트가 없습니다.');
+        console.log('No new text to translate.');
         return;
     }
     
     const texts = newTextNodes.map(n => n.textContent.trim());
-    console.log('추출된 텍스트들:', texts);
+    console.log('Extracted texts:', texts);
 
     const inputJsonArray = JSON.stringify(texts);
   
     if (window.chrome && window.chrome.runtime) {
-        isTranslating = true;
-        window.chrome.runtime.sendMessage(
-            {
-                type: 'CHATGPT_REQUEST',
-                model: 'gpt-4.1-nano',
-                instructions:
-                    'You are a professional translator. Translate each item in the following JSON array into natural Korean. Return the result as a JSON array in the same order. Do not include any explanations or formatting.',
-                input: inputJsonArray,
-            },
-            (res) => {
-                isTranslating = false;
-                if (res?.error) {
-                    console.error('에러: ' + res.error);
-                } else {
-                    try {
-                        const rawText = res?.data?.output?.[0]?.content?.[0]?.text ?? '';
-                        console.log('GPT 응답:', rawText);
+        // 저장된 번역 언어 가져오기
+        // eslint-disable-next-line no-undef
+        chrome.storage.local.get(['target_language'], (result) => {
+            const targetLanguage = result.target_language || 'Korean';
+            console.log('targetLanguage:', targetLanguage);
+            
+            isTranslating = true;
+            window.chrome.runtime.sendMessage(
+                {
+                    type: 'CHATGPT_REQUEST',
+                    model: 'gpt-4.1-nano',
+                    instructions:
+                        `You are a professional translator. Translate each item in the following JSON array into natural ${targetLanguage}. Return the result as a JSON array in the same order. Do not include any explanations or formatting.`,
+                    input: inputJsonArray,
+                },
+                (res) => {
+                    isTranslating = false;
+                    if (res?.error) {
+                        console.error('에러: ' + res.error);
+                    } else {
+                        try {
+                            const rawText = res?.data?.output?.[0]?.content?.[0]?.text ?? '';
+                            console.log('AI response:', rawText);
 
-                        // JSON parse 시도
-                        const translatedArray = JSON.parse(rawText);
-                        if (Array.isArray(translatedArray)) {
-                            console.log('translatedArray', translatedArray);
-                            // 번역된 텍스트를 실제 노드에 적용
-                            applyTranslations(newTextNodes, translatedArray);
-                        } else {
-                            console.error('번역 결과 파싱 실패 (응답 형식이 배열 아님)');
+                            // JSON parse 시도
+                            const translatedArray = JSON.parse(rawText);
+                            if (Array.isArray(translatedArray)) {
+                                console.log('translatedArray', translatedArray);
+                                // 번역된 텍스트를 실제 노드에 적용
+                                applyTranslations(newTextNodes, translatedArray);
+                            } else {
+                                console.error('Translation parsing failed (response is not an array)');
+                            }
+                        } catch (err) {
+                            console.error('JSON parsing failed:', err);
                         }
-                    } catch (err) {
-                        console.error('JSON 파싱 실패:', err);
                     }
                 }
-            }
-        );
+            );
+        });
     } else {
-        console.error('크롬 확장 환경에서만 동작합니다.');
+        console.error('Only works in Chrome extension environment.');
     }
 };
 
@@ -80,10 +87,10 @@ function setupDynamicContentObserver() {
         
         // 새로운 컨텐츠가 있으면 잠시 후 번역 실행
         if (hasNewContent) {
-            console.log('새로운 컨텐츠 감지됨, 번역 준비 중...');
+            console.log('New content detected, preparing translation...');
             setTimeout(() => {
                 handleTranslate();
-            }, 1000); // 1초 후 번역 실행 (컨텐츠 로딩 완료 대기)
+            }, 1000); // 1초 후 번역 실행 (컨텐츠 로딩 완료 대기) 
         }
     });
     
@@ -94,7 +101,7 @@ function setupDynamicContentObserver() {
         characterData: true
     });
     
-    console.log('동적 컨텐츠 감지 시작');
+    console.log('Dynamic content detection started');
     return observer;
 }
 
@@ -106,7 +113,7 @@ function setupPeriodicCheck() {
             const newTextNodes = textNodes.filter(node => !translatedNodes.has(node));
             
             if (newTextNodes.length > 0) {
-                console.log(`${newTextNodes.length}개의 새로운 텍스트 노드 발견`);
+                console.log(`${newTextNodes.length} new text nodes found`);
                 handleTranslate();
             }
         }
@@ -116,7 +123,7 @@ function setupPeriodicCheck() {
 // 번역된 텍스트를 실제 노드에 적용하는 함수
 function applyTranslations(textNodes, translatedArray) {
     if (textNodes.length !== translatedArray.length) {
-        console.error('텍스트 노드 수와 번역 결과 수가 일치하지 않습니다.');
+        console.error('Text node count and translation result count do not match');
         return;
     }
 
@@ -126,7 +133,7 @@ function applyTranslations(textNodes, translatedArray) {
             // 원본 텍스트를 번역된 텍스트로 교체
             node.textContent = translatedText;
             translatedNodes.add(node); // 번역된 노드로 표시
-            console.log(`번역 적용: "${node.textContent.trim()}" -> "${translatedText}"`);
+            console.log(`Apply Translation: "${node.textContent.trim()}" -> "${translatedText}"`);
         }
     });
 }

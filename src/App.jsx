@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import './App.css'
-
 
 function App() {
   const [token, setToken] = useState('');
   const [saved, setSaved] = useState(false);
-  const [prompt, setPrompt] = useState('');
-  const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
   const [isSavedToken, setIsSavedToken] = useState(false);
-
-
   
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (window.chrome && window.chrome.storage) {
@@ -32,7 +28,7 @@ function App() {
         setTimeout(() => setSaved(false), 1500);
       })
     } else {
-      alert('크롬 확장 환경에서만 동작합니다.')
+      alert(t('error'))
     }
   }
 
@@ -45,41 +41,13 @@ function App() {
     }
   }
 
-  const handlePrompt = () => {
-    console.log('handlePrompt', prompt, window.chrome.runtime.id)
-    if (!prompt) return
-    setLoading(true)
-
-    if (window.chrome && window.chrome.runtime) {
-      window.chrome.runtime.sendMessage({
-        type: 'CHATGPT_REQUEST',
-        model: 'gpt-4.1-nano',
-        instructions: 'You are a professional translator. Translate text to natural Korean. Only return the translated text.',
-        input:prompt
-      }, (res) => {
-        setLoading(false)
-        if (res?.error) {
-          setResponse('에러: ' + res.error)
-        } else {
-          console.log('res', res?.data);
-          // const json = JSON.stringify(res?.data);
-          const text = res?.data?.output?.[0]?.content?.[0]?.text;
-          setResponse(text??'');
-        }
-      })
-    } else {
-      setLoading(false)
-      setResponse('크롬 확장 환경에서만 동작합니다.')
-    }
-  }
-
   return (
     <div className="app-container">
-      <h1 className="label-title">ChatGPT 인증 토큰 입력</h1>
+      <h1 className="label-title">{t('title')}</h1>
       {!isSavedToken && <input
         type="text"
         className="border p-2 rounded w-full mb-2"
-        placeholder="ChatGPT 인증 토큰을 입력하세요"
+        placeholder={t('placeholder')}
         value={token}
         onChange={e => setToken(e.target.value)}
       />}
@@ -87,43 +55,17 @@ function App() {
         className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
         onClick={handleSave}
       >
-        저장
+        {t('save')}
       </button>
       }
       {isSavedToken && <button
         className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
         onClick={handleDeleteToken}
       >
-        토큰 삭제
+        {t('delete')}
       </button>
       }
-      {saved && <div className="save-success">저장되었습니다!</div>}
-
-      <h2 className="label-section">ChatGPT 프롬프트 테스트</h2>
-      <input
-        type="text"
-        className="border p-2 rounded w-full mb-2"
-        placeholder="프롬프트를 입력하세요"
-        value={prompt}
-        onChange={e => setPrompt(e.target.value)}
-      />
-      <button
-        className="bg-green-500 text-white px-4 py-2 rounded"
-        onClick={handlePrompt}
-        disabled={loading}
-      >
-        {loading ? '요청 중...' : '확인'}
-      </button>
-      {response && (
-        <div className="response-box">
-          {response}
-        </div>
-      )}
-      {!response && (
-        <div className="response-box">
-          No response
-        </div>
-      )}
+      {saved && <div className="save-success">{t('saved')}</div>}
     </div>
   )
 }

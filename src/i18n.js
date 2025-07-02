@@ -17,24 +17,28 @@ const resources = {
       gptModel: 'GPT Model',
       selectLanguage: 'Select language',
       selectModel: 'Select model',
+      translation: 'Translation',
+      domainTranslationFeature: 'Domain Translation',
     }
   },
-//   ko: {
-//     translation: {
-//       title: 'ChatGPT API key 입력',
-//       placeholder: 'ChatGPT API key를 입력하세요',
-//       save: '저장',
-//       delete: '토큰 삭제',
-//       saved: '저장되었습니다!',
-//       error: '크롬 확장 환경에서만 동작합니다.',
-//       translationSettings: '번역 설정',
-//       translationFeature: '번역 기능',
-//       translationLanguage: '번역 언어',
-//       gptModel: 'GPT 모델',
-//       selectLanguage: '언어 선택',
-//       selectModel: '모델 선택',
-//     }
-//   },
+  ko: {
+    translation: {
+      title: 'ChatGPT API key 입력',
+      placeholder: 'ChatGPT API key를 입력하세요',
+      save: '저장',
+      delete: '토큰 삭제',
+      saved: '저장되었습니다!',
+      error: '크롬 확장 환경에서만 동작합니다.',
+      translationSettings: '번역 설정',
+      translationFeature: '번역 기능',
+      translationLanguage: '번역 언어',
+      gptModel: 'GPT 모델',
+      selectLanguage: '언어 선택',
+      selectModel: '모델 선택',
+      translation: '번역',
+      domainTranslationFeature: '도메인별 번역',
+    }
+  },
   ja: {
     translation: {
       title: 'ChatGPT API key',
@@ -49,6 +53,8 @@ const resources = {
       gptModel: 'GPTモデル',
       selectLanguage: '言語を選択',
       selectModel: 'モデルを選択',
+      translation: '翻訳',
+      domainTranslationFeature: 'ドメイン別翻訳',
     }
   },
   zh: {
@@ -65,6 +71,8 @@ const resources = {
       gptModel: 'GPT模型',
       selectLanguage: '选择语言',
       selectModel: '选择模型',
+      translation: '翻译',
+      domainTranslationFeature: '按域翻译',
     }
   }
 };

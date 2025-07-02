@@ -24,11 +24,16 @@ function safeGetStorage(keys, callback) {
     }
 }
 
-// 번역 상태 초기화
+function getCurrentDomain() {
+    return window.location.hostname;
+}
+
+// 번역 상태 초기화 (전역 + 도메인별)
 function initializeTranslationState() {
-    safeGetStorage(['translation_enabled'], (result) => {
-        isTranslationEnabled = result.translation_enabled || false;
-        console.log('Translation enabled:', isTranslationEnabled);
+    chrome.storage.local.get(['translation_enabled_global', 'translation_enabled_by_domain'], (result) => {
+        const enabledGlobal = result.translation_enabled_global !== undefined ? result.translation_enabled_global : true;
+        const enabledMap = result.translation_enabled_by_domain || {};
+        isTranslationEnabled = enabledGlobal && !!enabledMap[getCurrentDomain()];
         if (isTranslationEnabled) {
             handleNewTextNodes();
         }
@@ -201,16 +206,18 @@ function translateNodes(nodes, lang, model) {
     });
 }
 
-// 메시지 리스너 추가 (팝업에서 번역 토글 시)
+// 메시지 리스너 수정: 전역 토글 메시지 처리
 chrome.runtime.onMessage.addListener((request) => {
     if (request.type === 'TRANSLATION_TOGGLED') {
         isTranslationEnabled = request.enabled;
-        console.log('Translation toggled:', isTranslationEnabled);
         if (isTranslationEnabled) {
             setTimeout(() => {
                 handleNewTextNodes();
             }, 500);
         }
+    } else if (request.type === 'TRANSLATION_TOGGLED_GLOBAL') {
+        // 전역 토글 시 전체 번역 상태 재초기화
+        initializeTranslationState();
     }
 });
 

@@ -2,14 +2,23 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import './App.css'
 
+function getDomain(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
+
 function App() {
   const [token, setToken] = useState('');
   const [saved, setSaved] = useState(false);
   const [isSavedToken, setIsSavedToken] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState('English');
   const [isTranslationEnabled, setIsTranslationEnabled] = useState(false);
+  const [isGlobalTranslationEnabled, setIsGlobalTranslationEnabled] = useState(true);
   const [gptModel, setGptModel] = useState('gpt-4.1');
-  
+  const [currentDomain, setCurrentDomain] = useState('');
   const { t } = useTranslation();
 
   // 지원하는 번역 언어 목록
@@ -36,7 +45,7 @@ function App() {
   useEffect(() => {
     // 저장된 토큰, 번역 언어, 번역 상태, 모델 불러오기
     if (window.chrome && window.chrome.storage) {
-      window.chrome.storage.local.get(['chatgpt_token', 'target_language', 'translation_enabled', 'gpt_model'], (result) => {
+      window.chrome.storage.local.get(['chatgpt_token', 'target_language', 'gpt_model', 'translation_enabled_global'], (result) => {
         if (result.chatgpt_token) {
           setToken(result.chatgpt_token);
           setIsSavedToken(true);
@@ -44,12 +53,23 @@ function App() {
         if (result.target_language) {
           setTargetLanguage(result.target_language);
         }
-        if (result.translation_enabled !== undefined) {
-          setIsTranslationEnabled(result.translation_enabled);
-        }
         if (result.gpt_model) {
           setGptModel(result.gpt_model);
         }
+        if (result.translation_enabled_global !== undefined) {
+          setIsGlobalTranslationEnabled(result.translation_enabled_global);
+        }
+      });
+    }
+    // 도메인별 번역 상태 불러오기
+    if (window.chrome && window.chrome.tabs) {
+      window.chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const domain = getDomain(tabs[0]?.url || '');
+        setCurrentDomain(domain);
+        window.chrome.storage.local.get(['translation_enabled_by_domain'], (result) => {
+          const enabledMap = result.translation_enabled_by_domain || {};
+          setIsTranslationEnabled(!!enabledMap[domain]);
+        });
       });
     }
   }, []);
@@ -93,23 +113,41 @@ function App() {
     }
   }
 
-  const handleTranslationToggle = (enabled) => {
-    setIsTranslationEnabled(enabled);
+  // 전역 번역 on/off 토글
+  const handleGlobalTranslationToggle = (enabled) => {
+    setIsGlobalTranslationEnabled(enabled);
     if (window.chrome && window.chrome.storage) {
-      window.chrome.storage.local.set({ translation_enabled: enabled }, () => {
-        console.log('번역 상태가 저장되었습니다:', enabled);
-        
-        // off -> on으로 변경된 경우 content script에 메시지 전송
-        if (enabled && window.chrome && window.chrome.tabs) {
+      window.chrome.storage.local.set({ translation_enabled_global: enabled }, () => {
+        // 모든 도메인에 대해 번역 off 시, content script에도 반영
+        if (window.chrome && window.chrome.tabs) {
           window.chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-              window.chrome.tabs.sendMessage(tabs[0].id, { 
-                type: 'TRANSLATION_TOGGLED', 
-                enabled: true 
-              });
-            }
+            window.chrome.tabs.sendMessage(tabs[0].id, {
+              type: 'TRANSLATION_TOGGLED_GLOBAL',
+              enabled
+            });
           });
         }
+      });
+    }
+  }
+
+  // 도메인별 번역 on/off 토글
+  const handleTranslationToggle = (enabled) => {
+    setIsTranslationEnabled(enabled);
+    if (window.chrome && window.chrome.tabs) {
+      window.chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const domain = getDomain(tabs[0]?.url || '');
+        window.chrome.storage.local.get(['translation_enabled_by_domain'], (result) => {
+          const enabledMap = result.translation_enabled_by_domain || {};
+          enabledMap[domain] = enabled;
+          window.chrome.storage.local.set({ translation_enabled_by_domain: enabledMap }, () => {
+            // content script에 메시지 전송
+            window.chrome.tabs.sendMessage(tabs[0].id, { 
+              type: 'TRANSLATION_TOGGLED', 
+              enabled 
+            });
+          });
+        });
       });
     }
   }
@@ -141,12 +179,24 @@ function App() {
       {saved && <div className="save-success">{t('saved')}</div>}
 
       <h2 className="label-section">{t('translationSettings')}</h2>
-      
+      <div className="mb-2 text-xs text-gray-500">{currentDomain && `Domain: ${currentDomain}`}</div>
+      {/* Global toggle */}
       <div className="flex items-center justify-between mb-[10px]">
-        <span className="text-sm font-medium">{t('translationFeature')}</span>
+        <span className="text-sm font-medium">{t('translation')}</span>
+        <div
+          className={`toggle-switch${isGlobalTranslationEnabled ? ' on' : ''}`}
+          onClick={() => handleGlobalTranslationToggle(!isGlobalTranslationEnabled)}
+        >
+          <div className="toggle-knob" />
+        </div>
+      </div>
+      {/* Domain toggle */}
+      <div className="flex items-center justify-between mb-[10px]">
+        <span className="text-sm font-medium">{t('domainTranslationFeature')}</span>
         <div
           className={`toggle-switch${isTranslationEnabled ? ' on' : ''}`}
           onClick={() => handleTranslationToggle(!isTranslationEnabled)}
+          style={{ opacity: isGlobalTranslationEnabled ? 1 : 0.5, pointerEvents: isGlobalTranslationEnabled ? 'auto' : 'none' }}
         >
           <div className="toggle-knob" />
         </div>
@@ -157,7 +207,7 @@ function App() {
           className="border p-2 rounded w-full"
           value={targetLanguage}
           onChange={(e) => handleLanguageChange(e.target.value)}
-          disabled={!isTranslationEnabled}
+          disabled={!isGlobalTranslationEnabled || !isTranslationEnabled}
         >
           <option value="" disabled>{t('selectLanguage')}</option>
           {supportedLanguages.map((lang) => (
@@ -174,7 +224,7 @@ function App() {
           className="border p-2 rounded w-full"
           value={gptModel}
           onChange={(e) => handleModelChange(e.target.value)}
-          disabled={!isTranslationEnabled}
+          disabled={!isGlobalTranslationEnabled || !isTranslationEnabled}
         >
           <option value="" disabled>{t('selectModel')}</option>
           {gptModels.map((model) => (

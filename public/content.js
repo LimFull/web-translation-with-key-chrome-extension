@@ -6,6 +6,8 @@ let isTranslating = false;
 let translatedNodes = new Set(); // 이미 번역된 노드들을 추적
 let isTranslationEnabled = false; // 번역 기능 on/off 상태
 let translationQueue = [];
+let translationCache = {};
+const MAX_CACHE_ITEMS = 5000;
 
 // 안전하게 chrome.storage.local.get을 호출하는 함수
 function safeGetStorage(keys, callback) {
@@ -33,36 +35,101 @@ function initializeTranslationState() {
     });
 }
 
-// 번역할 노드를 100개씩 묶어서 큐에 넣는 함수
-function enqueueTranslationNodes(nodes) {
+// chrome.storage.local에서 캐시 불러오기
+function loadTranslationCache(callback) {
+    chrome.storage.local.get(['translationCache'], (result) => {
+        translationCache = result.translationCache || {};
+        if (callback) callback();
+    });
+}
+
+// LRU 캐시 관리: 오래된 항목부터 삭제
+function enforceCacheLimit() {
+    // 언어-모델별로 모두 순회하며 전체 항목 수를 계산
+    let allEntries = [];
+    for (const lang in translationCache) {
+        for (const model in translationCache[lang]) {
+            for (const text in translationCache[lang][model]) {
+                allEntries.push({ lang, model, text, value: translationCache[lang][model][text] });
+            }
+        }
+    }
+    if (allEntries.length > MAX_CACHE_ITEMS) {
+        // 오래된 것부터 MAX_CACHE_ITEMS만 남기고 삭제
+        // (단순히 Object 순서 기준)
+        const toRemove = allEntries.length - MAX_CACHE_ITEMS;
+        for (let i = 0; i < toRemove; i++) {
+            const { lang, model, text } = allEntries[i];
+            delete translationCache[lang][model][text];
+        }
+    }
+}
+
+// chrome.storage.local에 캐시 저장 (저장 전 캐시 관리)
+function saveTranslationCache() {
+    enforceCacheLimit();
+    chrome.storage.local.set({ translationCache });
+}
+
+// 언어/모델별 캐시 접근 함수
+function getCacheFor(lang, model) {
+    if (!translationCache[lang]) translationCache[lang] = {};
+    if (!translationCache[lang][model]) translationCache[lang][model] = {};
+    return translationCache[lang][model];
+}
+
+
+// 번역할 노드가 생기면 enqueueTranslationNodes 호출
+function handleNewTextNodes() {
+    safeGetStorage(['target_language', 'gpt_model'], (result) => {
+        const lang = result.target_language || 'Korean';
+        const model = result.gpt_model || 'gpt-4.1';
+        const cache = getCacheFor(lang, model);
+        const textNodes = getMeaningfulTextNodes();
+        const newTextNodes = textNodes.filter(node => !translatedNodes.has(node));
+        const uncachedNodes = [];
+        newTextNodes.forEach(node => {
+            const text = node.textContent.trim();
+            if (cache[text]) {
+                node.textContent = cache[text];
+                node.parentElement.setAttribute('data-translated', 'true');
+                translatedNodes.add(node);
+            } else {
+                uncachedNodes.push(node);
+            }
+        });
+        if (uncachedNodes.length > 0) {
+            enqueueTranslationNodesWithLangModel(uncachedNodes, lang, model);
+        }
+    });
+}
+
+// 큐에 언어/모델 정보도 함께 넣음
+function enqueueTranslationNodesWithLangModel(nodes, lang, model) {
     for (let i = 0; i < nodes.length; i += 100) {
         const chunk = nodes.slice(i, i + 100);
-        translationQueue.push(chunk);
+        translationQueue.push({ nodes: chunk, lang, model });
     }
     processTranslationQueue();
 }
 
-// 큐를 감시하고 번역을 처리하는 함수
 function processTranslationQueue() {
     if (isTranslating || translationQueue.length === 0) return;
-    const nodesToTranslate = translationQueue[0]; // 큐의 맨 앞 묶음
+    const { nodes, lang, model } = translationQueue[0];
     isTranslating = true;
-    translateNodes(nodesToTranslate)
+    translateNodes(nodes, lang, model)
         .then(() => {
-            // 성공 시 큐에서 제거 후 다음 작업
             translationQueue.shift();
             isTranslating = false;
             processTranslationQueue();
         })
         .catch(() => {
-            // 실패 시(비활성, 중복진행 등) 큐에 그대로 두고 재시도
             isTranslating = false;
-            setTimeout(processTranslationQueue, 1000); // 1초 후 재시도
+            setTimeout(processTranslationQueue, 1000);
         });
 }
 
-// 실제 번역을 수행하는 함수 (기존 handleTranslate의 핵심 로직)
-function translateNodes(nodes) {
+function translateNodes(nodes, lang, model) {
     return new Promise((resolve, reject) => {
         if (!isTranslationEnabled) {
             reject('Translation is disabled.');
@@ -72,57 +139,66 @@ function translateNodes(nodes) {
             resolve();
             return;
         }
+        const cache = getCacheFor(lang, model);
         const texts = nodes.map(n => n.textContent.trim());
-        const inputJsonArray = JSON.stringify(texts);
-        safeGetStorage(['target_language', 'gpt_model'], (result) => {
-            const targetLanguage = result.target_language || 'Korean';
-            const gptModel = result.gpt_model || 'gpt-4.1';
-            window.chrome.runtime.sendMessage(
-                {
-                    type: 'CHATGPT_REQUEST',
-                    model: gptModel,
-                    instructions:
-                        `You are a professional translator. Translate each item in the following JSON array into natural ${targetLanguage}. Return the result as a JSON array in the same order. Do not include any explanations or formatting.`,
-                    input: inputJsonArray,
-                },
-                (res) => {
-                    if (res?.error) {
-                        console.error('에러: ' + res.error);
-                        reject(res.error);
-                    } else {
-                        try {
-                            const rawText = res?.data?.output?.[0]?.content?.[0]?.text ?? '';
-                            const translatedArray = JSON.parse(rawText);
-                            if (Array.isArray(translatedArray)) {
-                                if (nodes.length !== translatedArray.length) {
-                                    console.error('Text node count and translation result count do not match');
-                                    reject('Text node count mismatch');
-                                    return;
-                                }
-                                applyTranslations(nodes, translatedArray);
-                                resolve();
-                            } else {
-                                console.error('Translation parsing failed (response is not an array)');
-                                reject('Translation parsing failed');
+        const uncachedTexts = texts.filter(t => !cache[t]);
+        if (uncachedTexts.length === 0) {
+            nodes.forEach(node => {
+                const text = node.textContent.trim();
+                node.textContent = cache[text];
+                node.parentElement.setAttribute('data-translated', 'true');
+                translatedNodes.add(node);
+            });
+            resolve();
+            return;
+        }
+        const inputJsonArray = JSON.stringify(uncachedTexts);
+        window.chrome.runtime.sendMessage(
+            {
+                type: 'CHATGPT_REQUEST',
+                model: model,
+                instructions:
+                    `You are a professional translator. Translate each item in the following JSON array into natural ${lang}. Return the result as a JSON array in the same order. Do not include any explanations or formatting.`,
+                input: inputJsonArray,
+            },
+            (res) => {
+                if (res?.error) {
+                    console.error('에러: ' + res.error);
+                    reject(res.error);
+                } else {
+                    try {
+                        const rawText = res?.data?.output?.[0]?.content?.[0]?.text ?? '';
+                        const translatedArray = JSON.parse(rawText);
+                        if (Array.isArray(translatedArray)) {
+                            if (uncachedTexts.length !== translatedArray.length) {
+                                console.error('Text node count and translation result count do not match');
+                                reject('Text node count mismatch');
+                                return;
                             }
-                        } catch (err) {
-                            console.error('JSON parsing failed:', err);
-                            reject('JSON parsing failed');
+                            uncachedTexts.forEach((text, idx) => {
+                                addToCache(lang, model, text, translatedArray[idx]);
+                            });
+                            nodes.forEach(node => {
+                                const text = node.textContent.trim();
+                                if (cache[text]) {
+                                    node.textContent = cache[text];
+                                    node.parentElement.setAttribute('data-translated', 'true');
+                                    translatedNodes.add(node);
+                                }
+                            });
+                            resolve();
+                        } else {
+                            console.error('Translation parsing failed (response is not an array)');
+                            reject('Translation parsing failed');
                         }
+                    } catch (err) {
+                        console.error('JSON parsing failed:', err);
+                        reject('JSON parsing failed');
                     }
                 }
-            );
-        });
+            }
+        );
     });
-}
-
-// 번역할 노드가 생기면 enqueueTranslationNodes 호출
-function handleNewTextNodes() {
-    const textNodes = getMeaningfulTextNodes();
-    const newTextNodes = textNodes.filter(node => !translatedNodes.has(node));
-    if (newTextNodes.length > 0) {
-        enqueueTranslationNodes(newTextNodes);
-    }
 }
 
 // 메시지 리스너 추가 (팝업에서 번역 토글 시)
@@ -179,18 +255,6 @@ function setupPeriodicCheck() {
     }, 3000);
 }
 
-// 번역된 텍스트를 실제 노드에 적용하는 함수
-function applyTranslations(textNodes, translatedArray) {
-    textNodes.forEach((node, index) => {
-        const translatedText = translatedArray[index];
-        if (translatedText && typeof translatedText === 'string') {
-            node.textContent = translatedText;
-            translatedNodes.add(node);
-            console.log(`Apply Translation: "${node.textContent.trim()}" -> "${translatedText}"`);
-        }
-    });
-}
-
 function isVisible(node) {
     const style = window.getComputedStyle(node.parentElement || node);
     return (
@@ -242,6 +306,8 @@ function shouldSkipText(text) {
   
 function isUsefulNode(node) {
     if (!node.parentElement) return false;
+    // 번역된 노드는 제외
+    if (node.parentElement.getAttribute && node.parentElement.getAttribute('data-translated') === 'true') return false;
     const tag = node.parentElement.tagName.toLowerCase();
     const skipTags = ['script', 'style', 'svg', 'head', 'noscript', 'meta', 'nav', 'footer', 'aside', 'header'];
     if (skipTags.includes(tag)) return false;
@@ -287,6 +353,16 @@ window.addEventListener('popstate', () => {
 });
 
 // 초기화
-initializeTranslationState();
-setupDynamicContentObserver();
-setupPeriodicCheck();
+loadTranslationCache(() => {
+    initializeTranslationState();
+    setupDynamicContentObserver();
+    setupPeriodicCheck();
+});
+
+// 번역 결과를 캐시에 추가할 때도 관리
+function addToCache(lang, model, text, translated) {
+    const cache = getCacheFor(lang, model);
+    cache[text] = translated;
+    enforceCacheLimit();
+    saveTranslationCache();
+}

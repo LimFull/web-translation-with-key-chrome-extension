@@ -47,8 +47,8 @@ body {
 }
 
 .app-container {
-  min-width: 260px;
-  max-width: 420px;
+  min-width: 300px;
+  max-width: 500px;
   margin: 20px auto;
   background: #fff;
   border-radius: 18px;

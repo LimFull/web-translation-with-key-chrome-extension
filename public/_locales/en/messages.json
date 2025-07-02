@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Web Translation with Key"
+  },
+  "appDescription": {
+    "message": "Translate websites using the api key of generative AI models. We will support more models in the future."
+  },
+  "actionDefaultTitle": {
+    "message": "Translate this page"
+  }
+} 

@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "AI 网页翻译 with Key"
+  },
+  "appDescription": {
+    "message": "使用生成型AI模型的api key翻译网页。将来，我们将支持更多模型。"
+  },
+  "actionDefaultTitle": {
+    "message": "翻译此页面"
+  }
+} 

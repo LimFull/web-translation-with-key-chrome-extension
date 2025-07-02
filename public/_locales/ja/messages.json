@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "AI ウェブ翻訳 with Key"
+  },
+  "appDescription": {
+    "message": "ウェブページを生成型AIモデルのapi keyを使用して翻訳します。将来、より多くのモデルをサポートする予定です。"
+  },
+  "actionDefaultTitle": {
+    "message": "このページを翻訳"
+  }
+} 

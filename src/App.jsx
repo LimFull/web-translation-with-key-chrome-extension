@@ -6,7 +6,7 @@ function App() {
   const [token, setToken] = useState('');
   const [saved, setSaved] = useState(false);
   const [isSavedToken, setIsSavedToken] = useState(false);
-  const [targetLanguage, setTargetLanguage] = useState('Korean');
+  const [targetLanguage, setTargetLanguage] = useState('English');
   const [isTranslationEnabled, setIsTranslationEnabled] = useState(false);
   const [gptModel, setGptModel] = useState('gpt-4.1');
   
@@ -14,8 +14,8 @@ function App() {
 
   // 지원하는 번역 언어 목록
   const supportedLanguages = [
-    { code: 'Korean', name: '한국어' },
     { code: 'English', name: 'English' },
+    { code: 'Korean', name: '한국어' },
     { code: 'Japanese', name: '日本語' },
     { code: 'Chinese', name: '中文' },
     { code: 'Spanish', name: 'Español' },

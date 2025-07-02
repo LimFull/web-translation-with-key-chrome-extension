@@ -1,20 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Web Translation Extension",
+  "name": "__MSG_appName__",
   "version": "1.0.0",
-  "description": "웹사이트 번역을 위한 크롬 익스텐션",
+  "description": "__MSG_appDescription__",
   "action": {
     "default_popup": "index.html",
     "default_icon": {
-      "16": "icon-16.png",
-      "48": "icon-48.png",
-      "128": "icon-128.png"
-    }
+      "128": "icon128.png"
+    },
+    "default_title": "__MSG_actionDefaultTitle__"
   },
   "icons": {
-    "16": "icon-16.png",
-    "48": "icon-48.png",
-    "128": "icon-128.png"
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   },
   "permissions": [
     "storage",
@@ -29,5 +29,6 @@
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "default_locale": "en"
 } 

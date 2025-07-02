@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "AI 웹 번역 with Key"
+  },
+  "appDescription": {
+    "message": "웹 페이지를 생성형 AI 모델의 api key를 사용해 번역합니다. 추후 더 많은 모델을 지원할 예정입니다."
+  },
+  "actionDefaultTitle": {
+    "message": "이 페이지 번역"
+  }
+} 

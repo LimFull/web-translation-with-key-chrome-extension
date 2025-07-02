@@ -5,8 +5,8 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 const resources = {
   en: {
     translation: {
-      title: 'ChatGPT Authentication Token',
-      placeholder: 'Enter your ChatGPT authentication token',
+      title: 'ChatGPT API key',
+      placeholder: 'Enter your ChatGPT API key',
       save: 'Save',
       delete: 'Delete Token',
       saved: 'Saved!',
@@ -19,26 +19,26 @@ const resources = {
       selectModel: 'Select model',
     }
   },
-  ko: {
-    translation: {
-      title: 'ChatGPT 인증 토큰 입력',
-      placeholder: 'ChatGPT 인증 토큰을 입력하세요',
-      save: '저장',
-      delete: '토큰 삭제',
-      saved: '저장되었습니다!',
-      error: '크롬 확장 환경에서만 동작합니다.',
-      translationSettings: '번역 설정',
-      translationFeature: '번역 기능',
-      translationLanguage: '번역 언어',
-      gptModel: 'GPT 모델',
-      selectLanguage: '언어 선택',
-      selectModel: '모델 선택',
-    }
-  },
+//   ko: {
+//     translation: {
+//       title: 'ChatGPT API key 입력',
+//       placeholder: 'ChatGPT API key를 입력하세요',
+//       save: '저장',
+//       delete: '토큰 삭제',
+//       saved: '저장되었습니다!',
+//       error: '크롬 확장 환경에서만 동작합니다.',
+//       translationSettings: '번역 설정',
+//       translationFeature: '번역 기능',
+//       translationLanguage: '번역 언어',
+//       gptModel: 'GPT 모델',
+//       selectLanguage: '언어 선택',
+//       selectModel: '모델 선택',
+//     }
+//   },
   ja: {
     translation: {
-      title: 'ChatGPT認証トークン入力',
-      placeholder: 'ChatGPT認証トークンを入力してください',
+      title: 'ChatGPT API key',
+      placeholder: 'ChatGPT API keyを入力してください',
       save: '保存',
       delete: 'トークン削除',
       saved: '保存されました！',
@@ -53,8 +53,8 @@ const resources = {
   },
   zh: {
     translation: {
-      title: 'ChatGPT认证令牌输入',
-      placeholder: '请输入您的ChatGPT认证令牌',
+      title: 'ChatGPT API key',
+      placeholder: '请输入您的ChatGPT API key',
       save: '保存',
       delete: '删除令牌',
       saved: '已保存！',

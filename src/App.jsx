@@ -207,7 +207,6 @@ function App() {
           className="border p-2 rounded w-full"
           value={targetLanguage}
           onChange={(e) => handleLanguageChange(e.target.value)}
-          disabled={!isGlobalTranslationEnabled || !isTranslationEnabled}
         >
           <option value="" disabled>{t('selectLanguage')}</option>
           {supportedLanguages.map((lang) => (
@@ -224,7 +223,6 @@ function App() {
           className="border p-2 rounded w-full"
           value={gptModel}
           onChange={(e) => handleModelChange(e.target.value)}
-          disabled={!isGlobalTranslationEnabled || !isTranslationEnabled}
         >
           <option value="" disabled>{t('selectModel')}</option>
           {gptModels.map((model) => (

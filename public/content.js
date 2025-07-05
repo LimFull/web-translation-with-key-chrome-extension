@@ -4,6 +4,7 @@ console.log('Content script loaded!');
 
 let isTranslating = false;
 let translatedNodes = new Set(); // 이미 번역된 노드들을 추적
+let translatingNodes = new Set(); // 번역 대기/진행 중인 노드들을 추적
 let isTranslationEnabled = false; // 번역 기능 on/off 상태
 let translationQueue = [];
 let translationCache = {};
@@ -144,6 +145,12 @@ function translateNodes(nodes, lang, model) {
             resolve();
             return;
         }
+        
+        // 번역 요청 시 노드들을 translatingNodes에 추가
+        nodes.forEach(node => {
+            translatingNodes.add(node);
+        });
+        
         const cache = getCacheFor(lang, model);
         const texts = nodes.map(n => n.textContent.trim());
         const uncachedTexts = texts.filter(t => !cache[t]);
@@ -153,6 +160,7 @@ function translateNodes(nodes, lang, model) {
                 node.textContent = cache[text];
                 node.parentElement.setAttribute('data-translated', 'true');
                 translatedNodes.add(node);
+                translatingNodes.delete(node); // 번역 완료 시 translatingNodes에서 제거
             });
             resolve();
             return;
@@ -169,6 +177,10 @@ function translateNodes(nodes, lang, model) {
             (res) => {
                 if (res?.error) {
                     console.error('에러: ' + res.error);
+                    // 에러 발생 시에도 translatingNodes에서 제거
+                    nodes.forEach(node => {
+                        translatingNodes.delete(node);
+                    });
                     reject(res.error);
                 } else {
                     try {
@@ -177,6 +189,10 @@ function translateNodes(nodes, lang, model) {
                         if (Array.isArray(translatedArray)) {
                             if (uncachedTexts.length !== translatedArray.length) {
                                 console.error('Text node count and translation result count do not match');
+                                // 번역 결과 개수 불일치 시에도 translatingNodes에서 제거
+                                nodes.forEach(node => {
+                                    translatingNodes.delete(node);
+                                });
                                 reject('Text node count mismatch');
                                 return;
                             }
@@ -189,15 +205,24 @@ function translateNodes(nodes, lang, model) {
                                     node.textContent = cache[text];
                                     node.parentElement.setAttribute('data-translated', 'true');
                                     translatedNodes.add(node);
+                                    translatingNodes.delete(node); // 번역 완료 시 translatingNodes에서 제거
                                 }
                             });
                             resolve();
                         } else {
                             console.error('Translation parsing failed (response is not an array)');
+                            // 파싱 실패 시에도 translatingNodes에서 제거
+                            nodes.forEach(node => {
+                                translatingNodes.delete(node);
+                            });
                             reject('Translation parsing failed');
                         }
                     } catch (err) {
                         console.error('JSON parsing failed:', err);
+                        // JSON 파싱 실패 시에도 translatingNodes에서 제거
+                        nodes.forEach(node => {
+                            translatingNodes.delete(node);
+                        });
                         reject('JSON parsing failed');
                     }
                 }
@@ -315,6 +340,8 @@ function isUsefulNode(node) {
     if (!node.parentElement) return false;
     // 번역된 노드는 제외
     if (node.parentElement.getAttribute && node.parentElement.getAttribute('data-translated') === 'true') return false;
+    // 번역 대기/진행 중인 노드는 제외
+    if (translatedNodes.has(node) || translatingNodes.has(node)) return false;
     const tag = node.parentElement.tagName.toLowerCase();
     const skipTags = ['script', 'style', 'svg', 'head', 'noscript', 'meta', 'nav', 'footer', 'aside', 'header'];
     if (skipTags.includes(tag)) return false;
@@ -344,6 +371,7 @@ function resetTranslationQueueAndRestart() {
     translationQueue = [];
     isTranslating = false;
     translatedNodes = new Set();
+    translatingNodes = new Set(); // 번역 대기/진행 중인 노드들도 초기화
     // 현재 페이지의 번역을 다시 시작
     if (isTranslationEnabled) {
         handleNewTextNodes();

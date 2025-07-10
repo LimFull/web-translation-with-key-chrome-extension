@@ -132,23 +132,36 @@ function App() {
   }
 
   // 도메인별 번역 on/off 토글
-  const handleTranslationToggle = (enabled) => {
+  const handleTranslationToggle = async (enabled) => {
     setIsTranslationEnabled(enabled);
-    if (window.chrome && window.chrome.tabs) {
-      window.chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const domain = getDomain(tabs[0]?.url || '');
-        window.chrome.storage.local.get(['translation_enabled_by_domain'], (result) => {
-          const enabledMap = result.translation_enabled_by_domain || {};
-          enabledMap[domain] = enabled;
-          window.chrome.storage.local.set({ translation_enabled_by_domain: enabledMap }, () => {
-            // content script에 메시지 전송
-            window.chrome.tabs.sendMessage(tabs[0].id, { 
-              type: 'TRANSLATION_TOGGLED', 
-              enabled 
-            });
-          });
-        });
+    
+    if (!window.chrome?.tabs) return;
+    
+    try {
+      const tabs = await new Promise((resolve) => {
+        window.chrome.tabs.query({ active: true, currentWindow: true }, resolve);
       });
+      
+      const domain = getDomain(tabs[0]?.url || '');
+      
+      const result = await new Promise((resolve) => {
+        window.chrome.storage.local.get(['translation_enabled_by_domain'], resolve);
+      });
+      
+      const enabledMap = result.translation_enabled_by_domain || {};
+      enabledMap[domain] = enabled;
+      
+      await new Promise((resolve) => {
+        window.chrome.storage.local.set({ translation_enabled_by_domain: enabledMap }, resolve);
+      });
+      
+      // content script에 메시지 전송
+      window.chrome.tabs.sendMessage(tabs[0].id, { 
+        type: 'TRANSLATION_TOGGLED', 
+        enabled 
+      });
+    } catch (error) {
+      console.error('toggle error', error);
     }
   }
 

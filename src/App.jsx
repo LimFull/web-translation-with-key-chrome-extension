@@ -156,7 +156,7 @@ function App() {
       });
       
       // content script에 메시지 전송
-      window.chrome.tabs.sendMessage(tabs[0].id, { 
+      window.chrome.tabs.sendMessage(tabs[0]?.id, { 
         type: 'TRANSLATION_TOGGLED', 
         enabled 
       });

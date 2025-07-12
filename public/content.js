@@ -246,7 +246,7 @@ Each item gets its own translation, regardless of context.`,
                         nodes.forEach(node => {
                             translatingNodes.delete(node);
                         });
-                        reject('JSON parsing failed' + err.message);
+                        reject('JSON parsing failed: ' + err.message);
                     }
                 }
             }

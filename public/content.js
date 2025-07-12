@@ -9,6 +9,7 @@ let isTranslationEnabled = false; // 번역 기능 on/off 상태
 let translationQueue = [];
 let translationCache = {};
 const MAX_CACHE_ITEMS = 5000;
+const CHUNK_SIZE = 25;
 
 // 안전하게 chrome.storage.local.get을 호출하는 함수
 function safeGetStorage(keys, callback) {
@@ -112,8 +113,8 @@ function handleNewTextNodes() {
 
 // 큐에 언어/모델 정보도 함께 넣음
 function enqueueTranslationNodesWithLangModel(nodes, lang, model) {
-    for (let i = 0; i < nodes.length; i += 100) {
-        const chunk = nodes.slice(i, i + 100);
+    for (let i = 0; i < nodes.length; i += CHUNK_SIZE) {
+        const chunk = nodes.slice(i, i + CHUNK_SIZE);
         translationQueue.push({ nodes: chunk, lang, model });
     }
     processTranslationQueue();
@@ -171,7 +172,22 @@ function translateNodes(nodes, lang, model) {
                 type: 'CHATGPT_REQUEST',
                 model: model,
                 instructions:
-                    `You are a professional translator. Translate each item in the following JSON array into natural ${lang}. Return the result as a JSON array in the same order. Do not include any explanations or formatting.`,
+                    `You are a professional translator. Translate each item in the following JSON array into natural ${lang}. 
+                    
+CRITICAL REQUIREMENTS:
+1. Return EXACTLY the same number of items as the input array
+2. Maintain the exact same order as the input array
+3. Do NOT merge, combine, or skip any items
+4. Do NOT add explanations or formatting
+5. Return ONLY a pure JSON array
+
+IMPORTANT: Each array item must be translated individually, even if they seem related or could form a sentence together. Do not combine consecutive items.
+
+Example: 
+Input: ["Hello", "world", "how", "are", "you"]
+Output: ["안녕하세요", "세계", "어떻게", "있어요", "당신은"]
+
+Each item gets its own translation, regardless of context.`,
                 input: inputJsonArray,
             },
             (res) => {
@@ -189,6 +205,13 @@ function translateNodes(nodes, lang, model) {
                         if (Array.isArray(translatedArray)) {
                             if (uncachedTexts.length !== translatedArray.length) {
                                 console.error('Text node count and translation result count do not match');
+                                
+                                // 개수 불일치 시에도 가능한 만큼 캐시에 저장
+                                const minLength = Math.min(uncachedTexts.length, translatedArray.length);
+                                for (let i = 0; i < minLength; i++) {
+                                    addToCache(lang, model, uncachedTexts[i], translatedArray[i]);
+                                }
+                                
                                 // 번역 결과 개수 불일치 시에도 translatingNodes에서 제거
                                 nodes.forEach(node => {
                                     translatingNodes.delete(node);
@@ -223,7 +246,7 @@ function translateNodes(nodes, lang, model) {
                         nodes.forEach(node => {
                             translatingNodes.delete(node);
                         });
-                        reject('JSON parsing failed');
+                        reject('JSON parsing failed' + err.message);
                     }
                 }
             }

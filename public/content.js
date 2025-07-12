@@ -11,7 +11,11 @@ let translationCache = {};
 const MAX_CACHE_ITEMS = 5000;
 const CHUNK_SIZE = 25;
 
-// 안전하게 chrome.storage.local.get을 호출하는 함수
+/**
+ * Safely retrieves values from chrome.storage.local and invokes a callback with the result.
+ * 
+ * Handles errors both during the storage retrieval and within the callback execution to prevent uncaught exceptions.
+ */
 function safeGetStorage(keys, callback) {
     try {
         chrome.storage.local.get(keys, (result) => {
@@ -111,7 +115,15 @@ function handleNewTextNodes() {
     });
 }
 
-// 큐에 언어/모델 정보도 함께 넣음
+/**
+ * Splits an array of text nodes into chunks and enqueues them for translation with the specified language and model.
+ * 
+ * Each chunk is added to the translation queue along with its associated language and model information, then the translation queue is processed.
+ * 
+ * @param {Node[]} nodes - The array of text nodes to be translated.
+ * @param {string} lang - The target language code for translation.
+ * @param {string} model - The translation model identifier to use.
+ */
 function enqueueTranslationNodesWithLangModel(nodes, lang, model) {
     for (let i = 0; i < nodes.length; i += CHUNK_SIZE) {
         const chunk = nodes.slice(i, i + CHUNK_SIZE);
@@ -136,6 +148,16 @@ function processTranslationQueue() {
         });
 }
 
+/**
+ * Translates an array of text nodes into the specified language using the selected model.
+ *
+ * If all node texts are already cached, applies cached translations immediately. Otherwise, sends a translation request for uncached texts and updates the nodes with the translated results. Handles caching, translation state tracking, and ensures the number of translations matches the input. Rejects the promise if translation is disabled, the translation service returns an error, or the response is invalid.
+ *
+ * @param {Node[]} nodes - Array of text nodes to translate.
+ * @param {string} lang - Target language for translation.
+ * @param {string} model - Translation model identifier.
+ * @returns {Promise<void>} Resolves when translation is complete or all nodes are updated; rejects on error or mismatch.
+ */
 function translateNodes(nodes, lang, model) {
     return new Promise((resolve, reject) => {
         if (!isTranslationEnabled) {
